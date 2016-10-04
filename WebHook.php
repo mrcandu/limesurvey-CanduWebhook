@@ -5,7 +5,7 @@
  *
  * @author Matthew Cohen <mccandu@gmail.com>
  * @license GPL v3
- * @version 1.0
+ * @version 1.0.1
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,8 @@ class WebHook extends PluginBase {
     protected $storage = 'DbStorage';    
     static protected $description = 'Add call a url on completion of a survey';
     static protected $name = 'WebHook';
+
+    private $debug = true; // true/false
     
     public function __construct(PluginManager $manager, $id) 
     {
@@ -49,7 +51,7 @@ class WebHook extends PluginBase {
                     'type'=>'string',
                     'label'=>'Webhook URL',
                     'help'=>'',
-                    'current' => $this->get('webhookurl', 'Survey', $event->get('survey'),$this->get('webhookurl',null,null,$this->settings['webhookurl']['default'])),
+                    'current' => $this->get('webhookurl', 'Survey', $event->get('survey'),$this->get('webhookurl',null,null)),
                 )
             )
          ));
@@ -71,6 +73,9 @@ class WebHook extends PluginBase {
     public function afterSurveyComplete() 
     {
       
+        //test log line
+        Yii::log("afterSurveyComplete", 'trace','application.plugins.WebHook');
+
         $event      = $this->event;
         $surveyId   = $event->get('surveyId');
         $responseId = $event->get('responseId');
@@ -82,14 +87,14 @@ class WebHook extends PluginBase {
             if($url!=""){
                 $result = $this->httpGet($url);
                 if($result=="200"){
-                    //$this->log("Webhook [Ok]");
+                    $this->log("Processed webHook - $url"); //info
                 }
                 else{
-                    //$this->log("Webhook [Error] Invalid URL", CLogger::LEVEL_ERROR);
+                    $this->log("URL status $result - $url", true); //error
                 }
             }
             else{
-                //$this->log("Webhook [Error] Bad Status", CLogger::LEVEL_ERROR);
+                $this->log("Badly formatted URL - $url", true); //error
             }
 
         }
@@ -153,6 +158,29 @@ class WebHook extends PluginBase {
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         return $httpcode;
+
+    }
+
+    private function log($log,$error=false){
+        
+        switch ($error){
+            case true:
+                $level='error';
+                $dlog="[ERROR] $log";
+                break;
+            default:
+                $level='info';
+                $dlog="[INFO] $log";
+                break;
+        }
+
+        Yii::log($log, $level,'application.plugins.webHook');
+
+        if($this->debug==true)
+        {
+            $now=date(DATE_ATOM);
+            echo "[{$now}] {$dlog}\n";
+        }
 
     }
 
